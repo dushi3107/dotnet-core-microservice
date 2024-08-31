@@ -1,0 +1,37 @@
+﻿steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [ 'build',
+            '-f', 'itembank-index-backend/cloudbuild.Dockerfile',
+            # all args are primarily based on the k8s.yaml file when deployed to Kubernetes
+            '--build-arg', 'APP_SITE=env:development',
+            '--build-arg', 'ASPNETCORE_ENVIRONMENT=Development',
+            '--build-arg', 'ASPNETCORE_HTTP_PORTS=5213',
+            '--build-arg', 'ELASTICSEARCH_API_KEY=$_ELASTICSEARCH_API_KEY',
+            '--build-arg', 'MSSQL_CONNECTION_STRING=$_MSSQL_CONNECTION_STRING',
+            '-t', '${_IMAGE_NAME}:${SHORT_SHA}-SNAPSHOT',
+            '-t', '${_IMAGE_NAME}:latest-SNAPSHOT',
+            '.' ]
+  - name: gcr.io/cloud-builders/docker
+    args: [ 'push', '${_IMAGE_NAME}:${SHORT_SHA}-SNAPSHOT' ]
+  - name: gcr.io/cloud-builders/docker
+    args: [ 'push', '${_IMAGE_NAME}:latest-SNAPSHOT' ]
+  - name: gcr.io/cloud-builders/kubectl
+    args:
+      - '-n'
+      - '$_K8S_NS'
+      - 'set'
+      - 'image'
+      - 'deployment'
+      - '${_APP_NAME}'
+      - '${_APP_NAME}=${_IMAGE_NAME}:${SHORT_SHA}-SNAPSHOT'
+    env:
+      - 'CLOUDSDK_CORE_PROJECT=educational-material-220114'
+      - 'CLOUDSDK_COMPUTE_ZONE=asia-east1-a'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=educational-material'
+substitutions:
+  _APP_NAME: 'itembank-index-backend'
+  _PROJECT_ID: 'educational-material-220114'
+  _IMAGE_NAME: 'asia-east1-docker.pkg.dev/${_PROJECT_ID}/${_APP_NAME}/test-image'
+options:
+  dynamic_substitutions: true
+timeout: 7200s
